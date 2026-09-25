@@ -13,6 +13,14 @@ async def lifespan(app: FastAPI):
     # Auto-create tables on startup if not present
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+    
+    # Auto-seed database if fresh deployment
+    try:
+        from seed import seed_data
+        await seed_data()
+    except Exception as e:
+        print(f"Startup seed notice: {e}")
+
     yield
     await engine.dispose()
 
@@ -26,6 +34,7 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.BACKEND_CORS_ORIGINS,
+    allow_origin_regex=r"https://.*\.vercel\.app|http://localhost:\d+|http://127\.0\.0\.1:\d+",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

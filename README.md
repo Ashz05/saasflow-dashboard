@@ -34,12 +34,12 @@ A high-performance, enterprise-grade SaaS analytics and management platform insp
 
 ## 🛠 Tech Stack
 
-| Layer | Technologies |
-|---|---|
-| **Frontend** | React 19, TypeScript, Vite, Tailwind CSS, Recharts, Lucide Icons, Axios, React Router v7 |
-| **Backend** | Python 3.11+, FastAPI, SQLAlchemy (Async), Alembic, Pydantic v2, PyJWT, Passlib (Bcrypt) |
-| **Database** | SQLite + `aiosqlite` (local development) / PostgreSQL + `asyncpg` (production) |
-| **Deployment** | Vercel (Frontend), Docker / Render / Railway (Backend) |
+| Layer                | Technologies                                                                             |
+| -------------------- | ---------------------------------------------------------------------------------------- |
+| **Frontend**   | React 19, TypeScript, Vite, Tailwind CSS, Recharts, Lucide Icons, Axios, React Router v7 |
+| **Backend**    | Python 3.11+, FastAPI, SQLAlchemy (Async), Alembic, Pydantic v2, PyJWT, Passlib (Bcrypt) |
+| **Database**   | SQLite +`aiosqlite` (local development) / PostgreSQL + `asyncpg` (production)        |
+| **Deployment** | Vercel (Frontend), Docker / Render / Railway (Backend)                                   |
 
 ---
 
@@ -77,12 +77,14 @@ bmad/
 ## 🚀 Quickstart (Local Development)
 
 ### 1. Clone the repository
+
 ```bash
 git clone https://github.com/Ashz05/saasflow-dashboard.git
 cd saasflow-dashboard
 ```
 
 ### 2. Backend Setup
+
 ```bash
 cd backend
 python -m venv .venv
@@ -101,16 +103,20 @@ python seed.py
 # Launch FastAPI server
 uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
 ```
+
 Default credentials:
+
 - **Email:** `admin@example.com`
 - **Password:** `password`
 
 ### 3. Frontend Setup
+
 ```bash
 cd ../frontend
 npm install
 npm run dev
 ```
+
 Open [http://localhost:5173](http://localhost:5173) in your browser.
 
 ---
@@ -118,6 +124,7 @@ Open [http://localhost:5173](http://localhost:5173) in your browser.
 ## 🚢 Deployment to Vercel
 
 ### Option 1: Vercel GitHub Integration (Recommended)
+
 1. Push this repository to GitHub.
 2. Go to [vercel.com/new](https://vercel.com/new) and import the repository.
 3. In **Project Settings**:
@@ -129,6 +136,7 @@ Open [http://localhost:5173](http://localhost:5173) in your browser.
 5. Click **Deploy**.
 
 ### Option 2: Deploy using Vercel CLI
+
 ```bash
 cd frontend
 npx vercel
@@ -139,6 +147,7 @@ npx vercel
 ## 🧪 Testing
 
 Run backend asynchronous unit and integration tests:
+
 ```bash
 cd backend
 pytest tests/ -v
@@ -147,4 +156,5 @@ pytest tests/ -v
 ---
 
 ## 📄 License
+
 This project is licensed under the MIT License.

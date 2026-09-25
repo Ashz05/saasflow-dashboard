@@ -91,6 +91,26 @@ export const Login: React.FC = () => {
             </div>
           )}
 
+          {/* Quick Demo Credentials Pill */}
+          {!isSignUp && (
+            <div className="mb-6 p-3 rounded-lg bg-indigo-50/80 border border-indigo-100 flex items-center justify-between text-xs text-indigo-900">
+              <div className="flex flex-col">
+                <span className="font-semibold text-indigo-950">Showcase Credentials:</span>
+                <span className="text-indigo-700">alex.d@saasflow.co • supersecurepassword123</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setEmail('alex.d@saasflow.co');
+                  setPassword('supersecurepassword123');
+                }}
+                className="px-2.5 py-1.5 bg-saasflow-accent text-white rounded-md font-medium hover:bg-saasflow-accent-hover transition-all text-xs shadow-sm active:scale-95"
+              >
+                Auto-Fill
+              </button>
+            </div>
+          )}
+
           <form onSubmit={handleSubmit} className="space-y-5">
             {isSignUp && (
               <div>

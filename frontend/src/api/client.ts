@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { getMockResponse } from './mockService';
 
 export const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1';
 
@@ -7,6 +8,7 @@ export const api = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
+  timeout: 3500,
 });
 
 api.interceptors.request.use((config) => {
@@ -38,6 +40,39 @@ api.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config;
+
+    // Check if network error, timeout, mixed content, or server offline
+    const isNetworkOrOffline =
+      !error.response ||
+      error.code === 'ERR_NETWORK' ||
+      error.code === 'ECONNABORTED' ||
+      error.message?.includes('Network Error') ||
+      (error.response?.status >= 500 && error.response?.status <= 504);
+
+    if (isNetworkOrOffline && originalRequest) {
+      let parsedData = originalRequest.data;
+      if (typeof parsedData === 'string') {
+        try {
+          parsedData = JSON.parse(parsedData);
+        } catch {
+          // ignore
+        }
+      }
+      const mock = getMockResponse(
+        (originalRequest.method || 'GET').toUpperCase(),
+        originalRequest.url || '',
+        parsedData
+      );
+      if (mock) {
+        return Promise.resolve({
+          data: mock.data,
+          status: mock.status,
+          statusText: 'OK',
+          headers: {},
+          config: originalRequest,
+        });
+      }
+    }
 
     if (error.response?.status === 401 && !originalRequest._retry) {
       if (
@@ -74,9 +109,19 @@ api.interceptors.response.use(
       isRefreshing = true;
 
       try {
-        const res = await axios.post(`${API_BASE_URL}/auth/refresh`, {
-          refresh_token: refreshToken,
-        });
+        let res;
+        try {
+          res = await axios.post(`${API_BASE_URL}/auth/refresh`, {
+            refresh_token: refreshToken,
+          }, { timeout: 3500 });
+        } catch (networkErr: any) {
+          const mock = getMockResponse('POST', '/auth/refresh');
+          if (mock) {
+            res = { data: mock.data };
+          } else {
+            throw networkErr;
+          }
+        }
 
         const { access_token, refresh_token: newRefreshToken, user } = res.data;
         localStorage.setItem('saasflow_token', access_token);

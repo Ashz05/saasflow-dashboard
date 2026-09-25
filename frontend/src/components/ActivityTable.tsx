@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { api } from '../api/client';
-import { ListFilter, Search } from 'lucide-react';
+import { ListFilter, Search, ShieldCheck, Lock } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 
 interface ActivityItem {
   id: string;
@@ -25,6 +26,8 @@ interface PaginationMeta {
 }
 
 export const ActivityTable: React.FC = () => {
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'owner' || user?.role === 'admin';
   const [activities, setActivities] = useState<ActivityItem[]>([]);
   const [pagination, setPagination] = useState<PaginationMeta>({
     currentPage: 1,
@@ -156,9 +159,20 @@ export const ActivityTable: React.FC = () => {
     <div className="p-6 bg-white border border-saasflow-slate-border rounded-xl shadow-card">
       {/* Header Bar */}
       <div className="flex items-center justify-between pb-4 border-b border-saasflow-slate-border gap-4 flex-wrap">
-        <h3 className="text-base font-bold text-saasflow-slate-textPrimary tracking-tight">
-          Recent Activity
-        </h3>
+        <div className="flex items-center gap-2.5">
+          <h3 className="text-base font-bold text-saasflow-slate-textPrimary tracking-tight">
+            Recent Activity
+          </h3>
+          {isAdmin ? (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-purple-50 text-purple-700 border border-purple-200">
+              <ShieldCheck className="w-3 h-3 text-purple-600" /> Full Audit Trail
+            </span>
+          ) : (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-slate-100 text-slate-600 border border-slate-200">
+              <Lock className="w-3 h-3 text-slate-500" /> Standard Team Activity
+            </span>
+          )}
+        </div>
 
         <div className="flex items-center gap-3">
           {/* Quick Search */}

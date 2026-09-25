@@ -4,7 +4,7 @@ export const DEMO_USER = {
   email: 'alex.d@saasflow.co',
   fullName: 'Alex Devon',
   full_name: 'Alex Devon',
-  role: 'owner',
+  role: 'owner', // Default Administrator
   workspace_id: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
   workspace: {
     id: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
@@ -42,6 +42,11 @@ function getCurrentAuthUser() {
     if (raw) {
       const parsed = JSON.parse(raw);
       if (parsed && (parsed.email || parsed.id)) {
+        // Strict Role Enforcement: Only alex.d@saasflow.co is owner/admin; all others are normal members
+        if (parsed.email !== 'alex.d@saasflow.co') {
+          parsed.role = 'member';
+          localStorage.setItem('saasflow_user', JSON.stringify(parsed));
+        }
         return parsed;
       }
     }
@@ -52,18 +57,18 @@ function getCurrentAuthUser() {
 }
 
 const SAMPLE_ACTIVITIES = [
-  { action: 'Updated billing settings to Annual Enterprise Tier', status: 'SUCCESS', ip: '192.168.1.101', minAgo: 4 },
-  { action: 'Exported quarterly CSV analytics audit report', status: 'SUCCESS', ip: '192.168.1.42', minAgo: 12 },
-  { action: 'Failed login attempt from unauthorized IP range', status: 'FAILED', ip: '45.133.1.89', minAgo: 25 },
-  { action: 'Generated new developer production API key', status: 'SUCCESS', ip: '192.168.1.101', minAgo: 48 },
-  { action: 'Invited team member sarah.c@saasflow.co (Viewer)', status: 'PENDING', ip: '192.168.1.15', minAgo: 72 },
-  { action: 'Modified webhook destination endpoint URL', status: 'SUCCESS', ip: '192.168.1.101', minAgo: 95 },
-  { action: 'Rate limit threshold exceeded (429 Too Many Requests)', status: 'FAILED', ip: '104.28.19.4', minAgo: 110 },
-  { action: 'Updated organization security policy to enforce 2FA', status: 'SUCCESS', ip: '192.168.1.101', minAgo: 130 },
-  { action: 'Rotated JWT master signing secret key', status: 'SUCCESS', ip: '192.168.1.101', minAgo: 180 },
-  { action: 'Triggered manual database backup snapshot', status: 'SUCCESS', ip: '192.168.1.20', minAgo: 240 },
-  { action: 'Revoked legacy OAuth integration token', status: 'SUCCESS', ip: '192.168.1.101', minAgo: 320 },
-  { action: 'Sync customer telemetry events from Segment stream', status: 'SUCCESS', ip: '192.168.1.88', minAgo: 400 },
+  { action: 'Updated billing settings to Annual Enterprise Tier', status: 'SUCCESS', ip: '192.168.1.101', minAgo: 4, adminOnly: true },
+  { action: 'Exported quarterly CSV analytics audit report', status: 'SUCCESS', ip: '192.168.1.42', minAgo: 12, adminOnly: false },
+  { action: 'Failed login attempt from unauthorized IP range', status: 'FAILED', ip: '45.133.1.89', minAgo: 25, adminOnly: true },
+  { action: 'Generated new developer production API key', status: 'SUCCESS', ip: '192.168.1.101', minAgo: 48, adminOnly: true },
+  { action: 'Invited team member sarah.c@saasflow.co (Viewer)', status: 'PENDING', ip: '192.168.1.15', minAgo: 72, adminOnly: true },
+  { action: 'Modified webhook destination endpoint URL', status: 'SUCCESS', ip: '192.168.1.101', minAgo: 95, adminOnly: true },
+  { action: 'Rate limit threshold exceeded (429 Too Many Requests)', status: 'FAILED', ip: '104.28.19.4', minAgo: 110, adminOnly: false },
+  { action: 'Updated organization security policy to enforce 2FA', status: 'SUCCESS', ip: '192.168.1.101', minAgo: 130, adminOnly: true },
+  { action: 'Rotated JWT master signing secret key', status: 'SUCCESS', ip: '192.168.1.101', minAgo: 180, adminOnly: true },
+  { action: 'Triggered manual database backup snapshot', status: 'SUCCESS', ip: '192.168.1.20', minAgo: 240, adminOnly: true },
+  { action: 'Revoked legacy OAuth integration token', status: 'SUCCESS', ip: '192.168.1.101', minAgo: 320, adminOnly: true },
+  { action: 'Sync customer telemetry events from Segment stream', status: 'SUCCESS', ip: '192.168.1.88', minAgo: 400, adminOnly: false },
 ];
 
 export function getMockResponse(_method: string, url: string, data?: any) {
@@ -71,12 +76,11 @@ export function getMockResponse(_method: string, url: string, data?: any) {
   const path = cleanUrl.split('?')[0];
   const searchParams = new URLSearchParams(cleanUrl.includes('?') ? cleanUrl.split('?')[1] : '');
 
-  // 1. Auth Login (Multi-user aware)
+  // 1. Auth Login (Enforces normal member role for non-admin emails)
   if (path.includes('/auth/login')) {
     const rawEmail = (data?.email || '').trim().toLowerCase();
     const password = data?.password || '';
 
-    // Validate non-empty credentials
     if (!rawEmail || !password) {
       return {
         status: 400,
@@ -84,7 +88,7 @@ export function getMockResponse(_method: string, url: string, data?: any) {
       };
     }
 
-    // Check if logging in as default demo admin
+    // Check if logging in as designated Administrator
     if (rawEmail === 'alex.d@saasflow.co') {
       return {
         status: 200,
@@ -97,7 +101,7 @@ export function getMockResponse(_method: string, url: string, data?: any) {
       };
     }
 
-    // Check custom registered users
+    // Normal User Login from registry
     const registered = getRegisteredUsers();
     const existing = registered[rawEmail];
     if (existing) {
@@ -107,30 +111,32 @@ export function getMockResponse(_method: string, url: string, data?: any) {
           data: { detail: 'Invalid email or password.' }
         };
       }
+      // Ensure normal users are members
+      const memberUser = { ...existing.user, role: 'member' };
       return {
         status: 200,
         data: {
           access_token: `mock_jwt_${Date.now()}`,
           refresh_token: `mock_refresh_${Date.now()}`,
           token_type: 'bearer',
-          user: existing.user
+          user: memberUser
         }
       };
     }
 
-    // If new email logged in without prior registration, dynamically provision session
+    // New normal member login
     const derivedName = rawEmail.split('@')[0].replace(/[._-]/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase());
     const newUser = {
       id: `user-${Date.now()}`,
       email: rawEmail,
       fullName: derivedName,
       full_name: derivedName,
-      role: 'owner',
+      role: 'member', // Normal User Role
       workspace_id: `ws-${Date.now()}`,
       workspace: {
         id: `ws-${Date.now()}`,
-        name: `${derivedName}'s Workspace`,
-        slug: `${rawEmail.split('@')[0]}-workspace`
+        name: `${derivedName}'s Team`,
+        slug: `${rawEmail.split('@')[0]}-team`
       },
       avatarUrl: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(derivedName)}`,
       avatar_url: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(derivedName)}`
@@ -148,7 +154,7 @@ export function getMockResponse(_method: string, url: string, data?: any) {
     };
   }
 
-  // 2. Auth Register (Persistent Multi-user sign up)
+  // 2. Auth Register (Always creates normal 'member' account)
   if (path.includes('/auth/register')) {
     const rawEmail = (data?.email || '').trim().toLowerCase();
     const fullName = (data?.fullName || '').trim() || rawEmail.split('@')[0];
@@ -166,12 +172,12 @@ export function getMockResponse(_method: string, url: string, data?: any) {
       email: rawEmail,
       fullName,
       full_name: fullName,
-      role: 'owner',
+      role: 'member', // Normal User Role (Prevented from admin privileges)
       workspace_id: `ws-${Date.now()}`,
       workspace: {
         id: `ws-${Date.now()}`,
-        name: `${fullName}'s Workspace`,
-        slug: `${rawEmail.split('@')[0]}-workspace`
+        name: `${fullName}'s Team`,
+        slug: `${rawEmail.split('@')[0]}-team`
       },
       avatarUrl: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(fullName)}`,
       avatar_url: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(fullName)}`
@@ -302,15 +308,21 @@ export function getMockResponse(_method: string, url: string, data?: any) {
     };
   }
 
-  // 8. Dashboard Activities
+  // 8. Dashboard Activities (RBAC: Sensitive security logs filtered for normal members)
   if (path.includes('/dashboard/activities')) {
     const activeUser = getCurrentAuthUser();
+    const isAdmin = activeUser.role === 'owner' || activeUser.role === 'admin';
     const page = parseInt(searchParams.get('page') || '1', 10);
     const limit = parseInt(searchParams.get('limit') || '4', 10);
     const status = (searchParams.get('status') || '').toLowerCase();
     const search = (searchParams.get('search') || '').toLowerCase();
 
-    let filtered = SAMPLE_ACTIVITIES.map((item, idx) => ({
+    // Normal members only see team actions; sensitive admin actions are filtered out
+    const availableActivities = isAdmin 
+      ? SAMPLE_ACTIVITIES 
+      : SAMPLE_ACTIVITIES.filter(a => !a.adminOnly);
+
+    let filtered = availableActivities.map((item, idx) => ({
       id: `activity-${idx + 1}`,
       user: {
         name: idx === 0 ? activeUser.fullName || activeUser.full_name : (idx % 2 === 0 ? 'Alex Devon' : 'Sarah Connor'),

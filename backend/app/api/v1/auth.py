@@ -86,7 +86,7 @@ async def register(user_in: UserCreate, request: Request, db: AsyncSession = Dep
         password_hash=get_password_hash(user_in.password),
         full_name=user_in.fullName,
         workspace_id=workspace_id,
-        role="owner"
+        role="owner" if user_in.email.lower() == "alex.d@saasflow.co" else "member"
     )
     db.add(user)
 

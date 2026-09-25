@@ -11,6 +11,7 @@ import {
   ChevronDown,
   Briefcase,
   X,
+  Lock,
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -27,6 +28,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onClose,
 }) => {
   const { user, logout } = useAuth();
+  const isAdmin = user?.role === 'owner' || user?.role === 'admin';
   const [workspaceMenuOpen, setWorkspaceMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -42,11 +44,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
   }, []);
 
   const navItems = [
-    { label: 'Dashboard', icon: LayoutDashboard },
-    { label: 'Analytics', icon: LineChart },
-    { label: 'Users', icon: Users },
-    { label: 'Integrations', icon: Network },
-    { label: 'Settings', icon: Settings },
+    { label: 'Dashboard', icon: LayoutDashboard, adminOnly: false },
+    { label: 'Analytics', icon: LineChart, adminOnly: false },
+    { label: 'Users', icon: Users, adminOnly: true },
+    { label: 'Integrations', icon: Network, adminOnly: true },
+    { label: 'Settings', icon: Settings, adminOnly: true },
   ];
 
   return (
@@ -133,14 +135,22 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <button
                 key={item.label}
                 onClick={() => setActiveTab && setActiveTab(item.label)}
-                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold transition-all ${
+                className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-semibold transition-all ${
                   isActive
                     ? 'bg-saasflow-accent text-white shadow-sm'
                     : 'text-saasflow-slate-textMuted hover:bg-saasflow-slate-surfaceDark hover:text-white'
                 }`}
               >
-                <Icon className={`w-4 h-4 ${isActive ? 'text-white' : 'text-saasflow-slate-textMuted'}`} />
-                <span>{item.label}</span>
+                <div className="flex items-center gap-3">
+                  <Icon className={`w-4 h-4 ${isActive ? 'text-white' : 'text-saasflow-slate-textMuted'}`} />
+                  <span>{item.label}</span>
+                </div>
+                {item.adminOnly && !isAdmin && (
+                  <span className="flex items-center gap-1 text-[9px] uppercase font-bold text-slate-400 bg-slate-800 px-1.5 py-0.5 rounded border border-slate-700">
+                    <Lock className="w-2.5 h-2.5 text-amber-400" />
+                    Admin
+                  </span>
+                )}
               </button>
             );
           })}
@@ -159,9 +169,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
             className="w-9 h-9 rounded-full object-cover shrink-0 ring-1 ring-slate-700"
           />
           <div className="overflow-hidden">
-            <h4 className="text-[13px] font-semibold text-white truncate">
-              {user?.fullName || 'Alex Devon'}
-            </h4>
+            <div className="flex items-center gap-1.5">
+              <h4 className="text-[13px] font-semibold text-white truncate max-w-[90px]">
+                {user?.fullName || 'Alex Devon'}
+              </h4>
+              <span className={`text-[9px] px-1.5 py-0.2 rounded font-bold uppercase tracking-wider shrink-0 ${
+                isAdmin
+                  ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30'
+                  : 'bg-slate-700 text-slate-300 border border-slate-600'
+              }`}>
+                {isAdmin ? 'Admin' : 'Member'}
+              </span>
+            </div>
             <p className="text-[11px] text-saasflow-slate-textMuted truncate">
               {user?.email || 'alex.d@saasflow.co'}
             </p>

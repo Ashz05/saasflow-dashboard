@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Search, Bell, Calendar, ChevronDown, Menu } from 'lucide-react';
+import { Search, Bell, Calendar, ChevronDown, Menu, ShieldCheck, User as UserIcon } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 
 interface HeaderProps {
   onOpenCommandPalette: () => void;
@@ -14,6 +15,8 @@ export const Header: React.FC<HeaderProps> = ({
   setTimeframe,
   onToggleSidebar,
 }) => {
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'owner' || user?.role === 'admin';
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
 
@@ -35,9 +38,9 @@ export const Header: React.FC<HeaderProps> = ({
   }, []);
 
   return (
-    <header className="w-full flex items-center justify-between pb-6 border-b border-saasflow-slate-border select-none">
-      {/* Left side: Hamburger button + Breadcrumb */}
-      <div className="flex items-center gap-3">
+    <header className="w-full flex items-center justify-between pb-6 border-b border-saasflow-slate-border select-none flex-wrap gap-4">
+      {/* Left side: Hamburger button + Breadcrumb + Role Badge */}
+      <div className="flex items-center gap-3 flex-wrap">
         {onToggleSidebar && (
           <button
             onClick={onToggleSidebar}
@@ -52,6 +55,15 @@ export const Header: React.FC<HeaderProps> = ({
           <span className="text-saasflow-slate-textMuted">/</span>
           <span className="text-saasflow-slate-textPrimary font-semibold">Overview</span>
         </div>
+        {isAdmin ? (
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-purple-50 text-purple-700 border border-purple-200">
+            <ShieldCheck className="w-3.5 h-3.5 text-purple-600" /> Admin Access
+          </span>
+        ) : (
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-slate-100 text-slate-600 border border-slate-200">
+            <UserIcon className="w-3.5 h-3.5 text-slate-500" /> Member (Standard Access)
+          </span>
+        )}
       </div>
 
       {/* Header Actions */}

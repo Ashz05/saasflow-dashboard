@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { Search, X, LayoutDashboard, LineChart, Users, Network, Settings, FileText } from 'lucide-react';
+import { Search, X, LayoutDashboard, LineChart, Users, Network, Settings, FileText, Lock, ShieldAlert } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 
 interface CommandPaletteProps {
   isOpen: boolean;
@@ -14,16 +15,19 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
   onToggle,
   onSelectAction,
 }) => {
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'owner' || user?.role === 'admin';
   const [query, setQuery] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(0);
+  const [deniedMessage, setDeniedMessage] = useState<string | null>(null);
 
   const commands = [
-    { label: 'View Analytics Dashboard', icon: LayoutDashboard, category: 'Navigation' },
-    { label: 'Inspect Real-time Revenue Trends', icon: LineChart, category: 'Metrics' },
-    { label: 'Manage Team Members & Permissions', icon: Users, category: 'Access' },
-    { label: 'Configure API Integrations & Webhooks', icon: Network, category: 'Settings' },
-    { label: 'Workspace Preferences', icon: Settings, category: 'Settings' },
-    { label: 'Export Security Audit Logs (CSV)', icon: FileText, category: 'Audit' },
+    { label: 'View Analytics Dashboard', icon: LayoutDashboard, category: 'Navigation', adminOnly: false },
+    { label: 'Inspect Real-time Revenue Trends', icon: LineChart, category: 'Metrics', adminOnly: false },
+    { label: 'Manage Team Members & Permissions', icon: Users, category: 'Access', adminOnly: true },
+    { label: 'Configure API Integrations & Webhooks', icon: Network, category: 'Settings', adminOnly: true },
+    { label: 'Workspace Preferences', icon: Settings, category: 'Settings', adminOnly: true },
+    { label: 'Export Security Audit Logs (CSV)', icon: FileText, category: 'Audit', adminOnly: true },
   ];
 
   const filteredCommands = commands.filter(
@@ -34,7 +38,17 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
 
   useEffect(() => {
     setSelectedIndex(0);
-  }, [query]);
+    setDeniedMessage(null);
+  }, [query, isOpen]);
+
+  const handleExecuteCommand = (cmd: typeof commands[0]) => {
+    if (cmd.adminOnly && !isAdmin) {
+      setDeniedMessage(`Permission Denied: "${cmd.label}" requires Administrator privileges.`);
+      return;
+    }
+    onSelectAction?.(cmd.label);
+    onClose();
+  };
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -58,14 +72,13 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
         setSelectedIndex((prev) => (prev - 1 >= 0 ? prev - 1 : filteredCommands.length - 1));
       } else if (e.key === 'Enter' && filteredCommands[selectedIndex]) {
         e.preventDefault();
-        onSelectAction?.(filteredCommands[selectedIndex].label);
-        onClose();
+        handleExecuteCommand(filteredCommands[selectedIndex]);
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, onClose, onToggle, filteredCommands, selectedIndex, onSelectAction]);
+  }, [isOpen, onClose, onToggle, filteredCommands, selectedIndex, isAdmin]);
 
   if (!isOpen) return null;
 
@@ -75,33 +88,41 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
       onClick={onClose}
     >
       <div
-        className="w-full max-w-xl bg-white border border-saasflow-slate-border rounded-2xl shadow-2xl overflow-hidden"
+        className="w-full max-w-xl bg-white rounded-xl shadow-2xl border border-saasflow-slate-border overflow-hidden animate-scale-up"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Search Input Bar */}
-        <div className="flex items-center px-4 py-3.5 border-b border-saasflow-slate-border">
-          <Search className="w-5 h-5 text-saasflow-slate-textMuted mr-3 shrink-0" />
+        <div className="flex items-center px-4 py-3.5 border-b border-saasflow-slate-border gap-3">
+          <Search className="w-5 h-5 text-saasflow-slate-textMuted shrink-0" />
           <input
             type="text"
             autoFocus
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Type a command or search entities..."
+            placeholder="Type a command or search actions..."
             className="w-full text-sm text-saasflow-slate-textPrimary placeholder:text-saasflow-slate-textMuted bg-transparent focus:outline-none"
           />
           <button
             onClick={onClose}
-            className="p-1 rounded text-saasflow-slate-textMuted hover:text-saasflow-slate-textPrimary transition-colors"
+            className="p-1 rounded-md text-saasflow-slate-textMuted hover:text-saasflow-slate-textPrimary hover:bg-slate-100 transition-colors"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
-        {/* Results List */}
-        <div className="max-h-72 overflow-y-auto p-2 space-y-1">
+        {/* Permission Denied Alert Banner */}
+        {deniedMessage && (
+          <div className="mx-3 mt-3 p-2.5 bg-amber-50 border border-amber-200 rounded-lg flex items-center gap-2 text-xs text-amber-900 animate-in fade-in">
+            <ShieldAlert className="w-4 h-4 text-amber-600 shrink-0" />
+            <span className="font-medium">{deniedMessage}</span>
+          </div>
+        )}
+
+        {/* Command List */}
+        <div className="p-2 max-h-72 overflow-y-auto space-y-1">
           {filteredCommands.length === 0 ? (
             <div className="py-8 text-center text-xs text-saasflow-slate-textMuted">
-              No matching commands found.
+              No matching actions found.
             </div>
           ) : (
             filteredCommands.map((cmd, idx) => {
@@ -110,10 +131,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
               return (
                 <button
                   key={cmd.label}
-                  onClick={() => {
-                    onSelectAction?.(cmd.label);
-                    onClose();
-                  }}
+                  onClick={() => handleExecuteCommand(cmd)}
                   onMouseEnter={() => setSelectedIndex(idx)}
                   className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-left transition-colors group ${
                     isSelected ? 'bg-indigo-50/70 border border-indigo-100' : 'hover:bg-slate-50'
@@ -137,9 +155,16 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
                       {cmd.label}
                     </span>
                   </div>
-                  <span className="text-[10px] font-medium text-saasflow-slate-textMuted bg-slate-100 px-2 py-0.5 rounded">
-                    {cmd.category}
-                  </span>
+                  <div className="flex items-center gap-1.5">
+                    {cmd.adminOnly && !isAdmin && (
+                      <span className="flex items-center gap-0.5 text-[9px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded uppercase">
+                        <Lock className="w-2.5 h-2.5" /> Admin Only
+                      </span>
+                    )}
+                    <span className="text-[10px] font-medium text-saasflow-slate-textMuted bg-slate-100 px-2 py-0.5 rounded">
+                      {cmd.category}
+                    </span>
+                  </div>
                 </button>
               );
             })
@@ -148,8 +173,14 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
 
         {/* Footer info */}
         <div className="px-4 py-2.5 bg-saasflow-slate-canvas border-t border-slate-100 flex items-center justify-between text-[11px] text-saasflow-slate-textMuted">
-          <span>Navigate with ↑ / ↓ and Enter</span>
-          <span>Press ESC to close</span>
+          <div className="flex items-center gap-2">
+            <span>Navigation:</span>
+            <kbd className="px-1.5 py-0.5 bg-white border border-slate-200 rounded text-[10px] font-mono">↑</kbd>
+            <kbd className="px-1.5 py-0.5 bg-white border border-slate-200 rounded text-[10px] font-mono">↓</kbd>
+            <span>Select:</span>
+            <kbd className="px-1.5 py-0.5 bg-white border border-slate-200 rounded text-[10px] font-mono">↵</kbd>
+          </div>
+          <span>Signed in as <strong className="text-saasflow-slate-textPrimary font-semibold">{isAdmin ? 'Admin' : 'Member'}</strong></span>
         </div>
       </div>
     </div>

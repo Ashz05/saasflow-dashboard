@@ -3,12 +3,75 @@ import { getMockResponse } from './mockService';
 
 export const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1';
 
+// Grab standard Axios network adapter
+const defaultAdapter = axios.getAdapter(axios.defaults.adapter);
+
 export const api = axios.create({
   baseURL: API_BASE_URL,
   headers: {
     'Content-Type': 'application/json',
   },
-  timeout: 3500,
+  timeout: 5000,
+  adapter: async (config) => {
+    const isHttpsPage = typeof window !== 'undefined' && window.location.protocol === 'https:';
+    const isLocalhostTarget = API_BASE_URL.includes('localhost') || API_BASE_URL.includes('127.0.0.1');
+    const isVercel = typeof window !== 'undefined' && window.location.hostname.includes('vercel.app');
+
+    // On Vercel / HTTPS without a valid remote backend, serve directly via mock engine with 0ms latency
+    if ((isHttpsPage && isLocalhostTarget) || (isVercel && isLocalhostTarget)) {
+      let parsedData = config.data;
+      if (typeof parsedData === 'string') {
+        try {
+          parsedData = JSON.parse(parsedData);
+        } catch {
+          // ignore
+        }
+      }
+      const mock = getMockResponse(
+        (config.method || 'GET').toUpperCase(),
+        config.url || '',
+        parsedData
+      );
+      if (mock) {
+        return {
+          data: mock.data,
+          status: mock.status,
+          statusText: 'OK',
+          headers: {},
+          config,
+        };
+      }
+    }
+
+    try {
+      return await defaultAdapter(config);
+    } catch (networkError: any) {
+      // If remote request fails (e.g. offline backend), fallback smoothly to mock response
+      let parsedData = config.data;
+      if (typeof parsedData === 'string') {
+        try {
+          parsedData = JSON.parse(parsedData);
+        } catch {
+          // ignore
+        }
+      }
+      const mock = getMockResponse(
+        (config.method || 'GET').toUpperCase(),
+        config.url || '',
+        parsedData
+      );
+      if (mock) {
+        return {
+          data: mock.data,
+          status: mock.status,
+          statusText: 'OK',
+          headers: {},
+          config,
+        };
+      }
+      throw networkError;
+    }
+  },
 });
 
 api.interceptors.request.use((config) => {
@@ -40,39 +103,6 @@ api.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config;
-
-    // Check if network error, timeout, mixed content, or server offline
-    const isNetworkOrOffline =
-      !error.response ||
-      error.code === 'ERR_NETWORK' ||
-      error.code === 'ECONNABORTED' ||
-      error.message?.includes('Network Error') ||
-      (error.response?.status >= 500 && error.response?.status <= 504);
-
-    if (isNetworkOrOffline && originalRequest) {
-      let parsedData = originalRequest.data;
-      if (typeof parsedData === 'string') {
-        try {
-          parsedData = JSON.parse(parsedData);
-        } catch {
-          // ignore
-        }
-      }
-      const mock = getMockResponse(
-        (originalRequest.method || 'GET').toUpperCase(),
-        originalRequest.url || '',
-        parsedData
-      );
-      if (mock) {
-        return Promise.resolve({
-          data: mock.data,
-          status: mock.status,
-          statusText: 'OK',
-          headers: {},
-          config: originalRequest,
-        });
-      }
-    }
 
     if (error.response?.status === 401 && !originalRequest._retry) {
       if (

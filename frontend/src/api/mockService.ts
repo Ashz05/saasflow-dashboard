@@ -36,7 +36,7 @@ export function getMockResponse(_method: string, url: string, data?: any) {
   const searchParams = new URLSearchParams(cleanUrl.includes('?') ? cleanUrl.split('?')[1] : '');
 
   // 1. Auth Login
-  if (path.endsWith('/auth/login')) {
+  if (path.includes('/auth/login')) {
     const email = data?.email || 'alex.d@saasflow.co';
     return {
       status: 200,
@@ -50,7 +50,7 @@ export function getMockResponse(_method: string, url: string, data?: any) {
   }
 
   // 2. Auth Register
-  if (path.endsWith('/auth/register')) {
+  if (path.includes('/auth/register')) {
     const email = data?.email || 'new.user@saasflow.co';
     const fullName = data?.fullName || 'New User';
     return {
@@ -65,7 +65,7 @@ export function getMockResponse(_method: string, url: string, data?: any) {
   }
 
   // 3. Auth Refresh
-  if (path.endsWith('/auth/refresh')) {
+  if (path.includes('/auth/refresh')) {
     return {
       status: 200,
       data: {
@@ -78,7 +78,7 @@ export function getMockResponse(_method: string, url: string, data?: any) {
   }
 
   // 4. Auth Me
-  if (path.endsWith('/auth/me')) {
+  if (path.includes('/auth/me')) {
     return {
       status: 200,
       data: DEMO_USER
@@ -86,7 +86,7 @@ export function getMockResponse(_method: string, url: string, data?: any) {
   }
 
   // 5. Auth Logout
-  if (path.endsWith('/auth/logout')) {
+  if (path.includes('/auth/logout')) {
     return {
       status: 200,
       data: { message: 'Logged out successfully' }
@@ -94,7 +94,7 @@ export function getMockResponse(_method: string, url: string, data?: any) {
   }
 
   // 6. Dashboard Stats (KPIs)
-  if (path.endsWith('/dashboard/stats')) {
+  if (path.includes('/dashboard/stats')) {
     const tf = searchParams.get('timeframe') || '30d';
     const statsMap: Record<string, any[]> = {
       '7d': [
@@ -126,7 +126,7 @@ export function getMockResponse(_method: string, url: string, data?: any) {
   }
 
   // 7. Dashboard Charts
-  if (path.endsWith('/dashboard/charts')) {
+  if (path.includes('/dashboard/charts')) {
     const tf = searchParams.get('timeframe') || '30d';
     let engagement = [
       { date: 'Sep 01', sessions: 1420 },
@@ -175,7 +175,7 @@ export function getMockResponse(_method: string, url: string, data?: any) {
   }
 
   // 8. Dashboard Activities
-  if (path.endsWith('/dashboard/activities')) {
+  if (path.includes('/dashboard/activities')) {
     const page = parseInt(searchParams.get('page') || '1', 10);
     const limit = parseInt(searchParams.get('limit') || '4', 10);
     const status = (searchParams.get('status') || '').toLowerCase();

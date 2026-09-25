@@ -1,0 +1,2 @@
+Full codebase implementation review for Bmad project: FastAPI backend and React frontend dashboard.
+User requested check on all front-end and back-end code to verify if all code conforms to best practices and standards.

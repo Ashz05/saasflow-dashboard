@@ -48,12 +48,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           const res = await api.get('/auth/me');
           setUser(res.data);
           localStorage.setItem('saasflow_user', JSON.stringify(res.data));
-        } catch {
-          localStorage.removeItem('saasflow_token');
-          localStorage.removeItem('saasflow_refresh_token');
-          localStorage.removeItem('saasflow_user');
-          setToken(null);
-          setUser(null);
+        } catch (err: any) {
+          if (err?.response?.status === 401) {
+            localStorage.removeItem('saasflow_token');
+            localStorage.removeItem('saasflow_refresh_token');
+            localStorage.removeItem('saasflow_user');
+            setToken(null);
+            setUser(null);
+          }
         }
       }
       setIsLoading(false);

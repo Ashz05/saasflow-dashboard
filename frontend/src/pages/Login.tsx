@@ -120,6 +120,7 @@ export const Login: React.FC = () => {
                 <input
                   type="text"
                   required
+                  autoComplete="name"
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
                   placeholder="Alex Devon"
@@ -135,6 +136,8 @@ export const Login: React.FC = () => {
               <input
                 type="email"
                 required
+                autoComplete="email"
+                autoCapitalize="none"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="name@company.com"
@@ -150,6 +153,7 @@ export const Login: React.FC = () => {
                 <input
                   type={showPassword ? 'text' : 'password'}
                   required
+                  autoComplete={isSignUp ? 'new-password' : 'current-password'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••••••"

@@ -1,4 +1,4 @@
-// In-memory mock service for instant live showcasing on Vercel or offline testing
+// In-memory & LocalStorage mock service for instant multi-user showcasing on Vercel
 export const DEMO_USER = {
   id: 'd9b1c784-5a23-4d89-9a12-872f23b109c1',
   email: 'alex.d@saasflow.co',
@@ -14,6 +14,42 @@ export const DEMO_USER = {
   avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop&crop=face',
   avatar_url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop&crop=face'
 };
+
+function getRegisteredUsers(): Record<string, { user: any; password?: string }> {
+  try {
+    const raw = typeof window !== 'undefined' ? localStorage.getItem('saasflow_registered_users') : null;
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+}
+
+function saveRegisteredUser(email: string, user: any, password?: string) {
+  try {
+    if (typeof window === 'undefined') return;
+    const users = getRegisteredUsers();
+    users[email.toLowerCase().trim()] = { user, password };
+    localStorage.setItem('saasflow_registered_users', JSON.stringify(users));
+  } catch {
+    // Ignore storage quota limits
+  }
+}
+
+function getCurrentAuthUser() {
+  try {
+    if (typeof window === 'undefined') return DEMO_USER;
+    const raw = localStorage.getItem('saasflow_user');
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed && (parsed.email || parsed.id)) {
+        return parsed;
+      }
+    }
+  } catch {
+    // Fall back to default
+  }
+  return DEMO_USER;
+}
 
 const SAMPLE_ACTIVITIES = [
   { action: 'Updated billing settings to Annual Enterprise Tier', status: 'SUCCESS', ip: '192.168.1.101', minAgo: 4 },
@@ -35,53 +71,145 @@ export function getMockResponse(_method: string, url: string, data?: any) {
   const path = cleanUrl.split('?')[0];
   const searchParams = new URLSearchParams(cleanUrl.includes('?') ? cleanUrl.split('?')[1] : '');
 
-  // 1. Auth Login
+  // 1. Auth Login (Multi-user aware)
   if (path.includes('/auth/login')) {
-    const email = data?.email || 'alex.d@saasflow.co';
+    const rawEmail = (data?.email || '').trim().toLowerCase();
+    const password = data?.password || '';
+
+    // Validate non-empty credentials
+    if (!rawEmail || !password) {
+      return {
+        status: 400,
+        data: { detail: 'Email and password are required.' }
+      };
+    }
+
+    // Check if logging in as default demo admin
+    if (rawEmail === 'alex.d@saasflow.co') {
+      return {
+        status: 200,
+        data: {
+          access_token: 'mock_jwt_access_token_demo_mode',
+          refresh_token: 'mock_jwt_refresh_token_demo_mode',
+          token_type: 'bearer',
+          user: DEMO_USER
+        }
+      };
+    }
+
+    // Check custom registered users
+    const registered = getRegisteredUsers();
+    const existing = registered[rawEmail];
+    if (existing) {
+      if (existing.password && existing.password !== password) {
+        return {
+          status: 401,
+          data: { detail: 'Invalid email or password.' }
+        };
+      }
+      return {
+        status: 200,
+        data: {
+          access_token: `mock_jwt_${Date.now()}`,
+          refresh_token: `mock_refresh_${Date.now()}`,
+          token_type: 'bearer',
+          user: existing.user
+        }
+      };
+    }
+
+    // If new email logged in without prior registration, dynamically provision session
+    const derivedName = rawEmail.split('@')[0].replace(/[._-]/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase());
+    const newUser = {
+      id: `user-${Date.now()}`,
+      email: rawEmail,
+      fullName: derivedName,
+      full_name: derivedName,
+      role: 'owner',
+      workspace_id: `ws-${Date.now()}`,
+      workspace: {
+        id: `ws-${Date.now()}`,
+        name: `${derivedName}'s Workspace`,
+        slug: `${rawEmail.split('@')[0]}-workspace`
+      },
+      avatarUrl: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(derivedName)}`,
+      avatar_url: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(derivedName)}`
+    };
+    saveRegisteredUser(rawEmail, newUser, password);
+
     return {
       status: 200,
       data: {
-        access_token: 'mock_jwt_access_token_demo_mode',
-        refresh_token: 'mock_jwt_refresh_token_demo_mode',
+        access_token: `mock_jwt_${Date.now()}`,
+        refresh_token: `mock_refresh_${Date.now()}`,
         token_type: 'bearer',
-        user: { ...DEMO_USER, email }
+        user: newUser
       }
     };
   }
 
-  // 2. Auth Register
+  // 2. Auth Register (Persistent Multi-user sign up)
   if (path.includes('/auth/register')) {
-    const email = data?.email || 'new.user@saasflow.co';
-    const fullName = data?.fullName || 'New User';
+    const rawEmail = (data?.email || '').trim().toLowerCase();
+    const fullName = (data?.fullName || '').trim() || rawEmail.split('@')[0];
+    const password = data?.password || '';
+
+    if (!rawEmail || !password) {
+      return {
+        status: 400,
+        data: { detail: 'Email and password are required for registration.' }
+      };
+    }
+
+    const newUser = {
+      id: `user-${Date.now()}`,
+      email: rawEmail,
+      fullName,
+      full_name: fullName,
+      role: 'owner',
+      workspace_id: `ws-${Date.now()}`,
+      workspace: {
+        id: `ws-${Date.now()}`,
+        name: `${fullName}'s Workspace`,
+        slug: `${rawEmail.split('@')[0]}-workspace`
+      },
+      avatarUrl: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(fullName)}`,
+      avatar_url: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(fullName)}`
+    };
+
+    saveRegisteredUser(rawEmail, newUser, password);
+
     return {
       status: 200,
       data: {
-        access_token: 'mock_jwt_access_token_demo_mode',
-        refresh_token: 'mock_jwt_refresh_token_demo_mode',
+        access_token: `mock_jwt_${Date.now()}`,
+        refresh_token: `mock_refresh_${Date.now()}`,
         token_type: 'bearer',
-        user: { ...DEMO_USER, email, fullName, full_name: fullName }
+        user: newUser
       }
     };
   }
 
   // 3. Auth Refresh
   if (path.includes('/auth/refresh')) {
+    const activeUser = getCurrentAuthUser();
     return {
       status: 200,
       data: {
-        access_token: 'mock_jwt_access_token_refreshed',
-        refresh_token: 'mock_jwt_refresh_token_refreshed',
+        access_token: `mock_jwt_refreshed_${Date.now()}`,
+        refresh_token: `mock_refresh_refreshed_${Date.now()}`,
         token_type: 'bearer',
-        user: DEMO_USER
+        user: activeUser
       }
     };
   }
 
-  // 4. Auth Me
+  // 4. Auth Me (Recovers active authenticated user identity)
   if (path.includes('/auth/me')) {
+    const activeUser = getCurrentAuthUser();
     return {
       status: 200,
-      data: DEMO_USER
+      data: activeUser
     };
   }
 
@@ -176,6 +304,7 @@ export function getMockResponse(_method: string, url: string, data?: any) {
 
   // 8. Dashboard Activities
   if (path.includes('/dashboard/activities')) {
+    const activeUser = getCurrentAuthUser();
     const page = parseInt(searchParams.get('page') || '1', 10);
     const limit = parseInt(searchParams.get('limit') || '4', 10);
     const status = (searchParams.get('status') || '').toLowerCase();
@@ -184,9 +313,9 @@ export function getMockResponse(_method: string, url: string, data?: any) {
     let filtered = SAMPLE_ACTIVITIES.map((item, idx) => ({
       id: `activity-${idx + 1}`,
       user: {
-        name: DEMO_USER.fullName,
-        email: DEMO_USER.email,
-        avatar: DEMO_USER.avatarUrl
+        name: idx === 0 ? activeUser.fullName || activeUser.full_name : (idx % 2 === 0 ? 'Alex Devon' : 'Sarah Connor'),
+        email: idx === 0 ? activeUser.email : (idx % 2 === 0 ? 'alex.d@saasflow.co' : 'sarah.c@saasflow.co'),
+        avatar: idx === 0 ? activeUser.avatarUrl || activeUser.avatar_url : (idx % 2 === 0 ? DEMO_USER.avatarUrl : 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&h=100&fit=crop&crop=face')
       },
       action: item.action,
       ipAddress: item.ip,
